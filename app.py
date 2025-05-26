@@ -21,17 +21,20 @@ async def index():
 
 @app.post("/process-quote-d")
 async def process_quote_d(file: UploadFile = File(...)):
-    csv_path = os.path.join(UPLOAD_DIR, file.filename)
-    with open(csv_path, "wb") as buffer:
+    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
     try:
-        df = pd.read_csv(csv_path, sep=';', encoding='latin1')  # fallback encoding
-    except UnicodeDecodeError:
-        return {"error": "Could not decode file. Please ensure it is a valid CSV with correct encoding."}
+        if file.filename.endswith('.xlsx') or file.filename.endswith('.xls'):
+            df = pd.read_excel(file_path)
+        else:
+            df = pd.read_csv(file_path, sep=';', encoding='latin1')
+    except Exception as e:
+        return {"error": f"Failed to read file: {str(e)}"}
 
     if 'Quote' not in df.columns:
-        return {"error": "'Quote' column not found in CSV"}
+        return {"error": "'Quote' column not found in the provided file"}
 
     quote_d_df = df[df['Quote'] == 'D']
 
@@ -50,5 +53,3 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return {"error": "No exported file found."}
-
-

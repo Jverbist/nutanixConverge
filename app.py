@@ -30,20 +30,18 @@ async def process_quote_d(file: UploadFile = File(...)):
     if 'Quote' not in df.columns:
         return {"error": "'Quote' column not found in CSV"}
 
+    # Collect all data where Quote == 'D'
     quote_d_df = df[df['Quote'] == 'D']
 
-    wb = load_workbook(TEMPLATE_PATH)
-    ws = wb.active
+    if quote_d_df.empty:
+        return {"error": "No data found for Quote D"}
 
-    start_row = 2
-    for idx, row in quote_d_df.iterrows():
-        ws.cell(row=start_row, column=1, value=row.get('Field1'))  # Replace with actual column names
-        ws.cell(row=start_row, column=2, value=row.get('Field2'))
-        start_row += 1
+    # Print to console for testing
+    print("\n===== Quote D Data Preview =====")
+    print(quote_d_df.head())
+    print("===== End of Preview =====\n")
 
-    wb.save(OUTPUT_PATH)
-
-    return {"message": "Quote D data processed and exported.", "output_file": OUTPUT_PATH}
+    return {"message": "Quote D data loaded successfully and printed to console."}
 
 @app.get("/download")
 async def download_file():
@@ -51,3 +49,11 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return {"error": "No exported file found."}
+
+# Make sure requirements.txt includes:
+# fastapi
+# uvicorn
+# pandas
+# openpyxl
+# python-multipart
+

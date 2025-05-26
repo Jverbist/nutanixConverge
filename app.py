@@ -27,25 +27,27 @@ async def process_quote_d(file: UploadFile = File(...)):
 
     try:
         if file.filename.endswith('.xlsx') or file.filename.endswith('.xls'):
-            df = pd.read_excel(file_path)
+            df = pd.read_excel(file_path, header=None)
         else:
-            df = pd.read_csv(file_path, sep=';', encoding='latin1')
+            df = pd.read_csv(file_path, sep=';', encoding='latin1', header=None)
     except Exception as e:
         return {"error": f"Failed to read file: {str(e)}"}
 
-    if 'Quote' not in df.columns:
-        return {"error": "'Quote' column not found in the provided file"}
+    # Search for any cell containing 'Quote D For distributor to quote to the reseller only'
+    found_rows = []
+    for idx, row in df.iterrows():
+        if row.astype(str).str.contains('Quote D For distributor to quote to the reseller only', case=False, na=False).any():
+            found_rows.append(row)
 
-    quote_d_df = df[df['Quote'] == 'D']
+    if not found_rows:
+        return {"error": "No data found containing 'Quote D For distributor to quote to the reseller only'"}
 
-    if quote_d_df.empty:
-        return {"error": "No data found for Quote D"}
+    print("\n===== Quote D Rows Found =====")
+    for row in found_rows:
+        print(row)
+    print("===== End of Found Rows =====\n")
 
-    print("\n===== Quote D Data Preview =====")
-    print(quote_d_df.head())
-    print("===== End of Preview =====\n")
-
-    return {"message": "Quote D data loaded successfully and printed to console."}
+    return {"message": "Quote D rows found and printed to console."}
 
 @app.get("/download")
 async def download_file():
@@ -53,3 +55,4 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return {"error": "No exported file found."}
+ound."}

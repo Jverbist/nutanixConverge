@@ -1,24 +1,14 @@
-# Use an official Python runtime as a base image
-FROM python:3.9-slim
+FROM python:3.10
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Clone the repository from GitHub
-RUN git clone https://github.com/Jverbist/nutanixConverge.git /app
-
-# Install application dependencies
+# Install dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the application port
-EXPOSE 4000
+# Copy your app
+COPY . .
 
-# Run the application
-CMD ["python", "app.py"]
+# Run uvicorn server
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "4000"]
 

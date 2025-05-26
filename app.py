@@ -25,18 +25,19 @@ async def process_quote_d(file: UploadFile = File(...)):
     with open(csv_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    df = pd.read_csv(csv_path, sep=';')
+    try:
+        df = pd.read_csv(csv_path, sep=';', encoding='latin1')  # fallback encoding
+    except UnicodeDecodeError:
+        return {"error": "Could not decode file. Please ensure it is a valid CSV with correct encoding."}
 
     if 'Quote' not in df.columns:
         return {"error": "'Quote' column not found in CSV"}
 
-    # Collect all data where Quote == 'D'
     quote_d_df = df[df['Quote'] == 'D']
 
     if quote_d_df.empty:
         return {"error": "No data found for Quote D"}
 
-    # Print to console for testing
     print("\n===== Quote D Data Preview =====")
     print(quote_d_df.head())
     print("===== End of Preview =====\n")
@@ -50,10 +51,4 @@ async def download_file():
     else:
         return {"error": "No exported file found."}
 
-# Make sure requirements.txt includes:
-# fastapi
-# uvicorn
-# pandas
-# openpyxl
-# python-multipart
 

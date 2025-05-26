@@ -8,4 +8,4 @@ services:
       - "81:8000"
     volumes:
       - .:/app
-    command: uvicorn app:app --host 0.0.0.0 --port 8000
+    # no need for 'command' here, Dockerfile CMD handles it

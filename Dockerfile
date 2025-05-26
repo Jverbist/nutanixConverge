@@ -17,7 +17,7 @@ RUN git clone https://github.com/Jverbist/nutanixConverge.git /app
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Expose the application port
-EXPOSE 5000
+EXPOSE 4000
 
 # Run the application
 CMD ["python", "app.py"]

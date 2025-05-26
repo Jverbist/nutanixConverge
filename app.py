@@ -1,6 +1,6 @@
 # app.py
 from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 import shutil
 import os
 import pandas as pd
@@ -12,6 +12,12 @@ UPLOAD_DIR = "uploaded_files"
 TEMPLATE_PATH = "XQ-3352605.xlsx"
 OUTPUT_PATH = "exported_quoteD.xlsx"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.get("/", response_class=HTMLResponse)
+async def index():
+    with open("index.html", "r") as file:
+        html_content = file.read()
+    return HTMLResponse(content=html_content)
 
 @app.post("/process-quote-d")
 async def process_quote_d(file: UploadFile = File(...)):

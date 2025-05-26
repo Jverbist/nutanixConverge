@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   flask-app:
-    image: nutanixconverge
+    image: nutanix-converge
     build:
       context: .
     ports:

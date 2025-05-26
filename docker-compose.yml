@@ -5,4 +5,4 @@ services:
     build:
       context: .
     ports:
-      - "90:4000"
+      - "80:4000"

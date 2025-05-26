@@ -1,2 +1,14 @@
+from fastapi import FastAPI, UploadFile, File
+import shutil
+
+app = FastAPI()
+
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    with open(f"uploaded_files/{file.filename}", "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    return {"filename": file.filename, "status": "uploaded"}
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=4000)

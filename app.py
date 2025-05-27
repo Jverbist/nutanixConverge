@@ -59,7 +59,7 @@ async def process_quote_d(file: UploadFile = File(...)):
 
     for _, row in filtered_rows.iterrows():
         ws.append([
-            None,  # ExternalId
+            row.get('Parent Quote Name'),  # ExternalId
             None,  # Title
             None,  # Currency
             today_str,  # Date
@@ -69,7 +69,7 @@ async def process_quote_d(file: UploadFile = File(...)):
             None,  # ExpectedClose
             None,  # EndUser
             None,  # BusinessUnit
-            row.get('Parent Quote Name'),  # Item
+            row.get('Product Code'),  # Item
             row.get('Quantity'),  # Quantity
             None,  # Salesprice
             None,  # Salesdiscount

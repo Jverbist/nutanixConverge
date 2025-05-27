@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 import shutil
 import os
 import pandas as pd
+import numpy as np
 from openpyxl import load_workbook
 
 app = FastAPI()
@@ -36,20 +37,21 @@ async def process_quote_d(file: UploadFile = File(...)):
     found_rows = []
     for idx, row in df.iterrows():
         if row.astype(str).str.contains('Quote D For distributor to quote to the reseller only', case=False, na=False).any():
-            found_rows.append(row)
+            cleaned_row = row.replace({np.nan: None, np.inf: None, -np.inf: None})
+            found_rows.append(cleaned_row)
 
     if not found_rows:
         return JSONResponse(content={"error": "No data found containing 'Quote D For distributor to quote to the reseller only'"}, status_code=404)
 
     print("\n===== Quote D Rows Found =====")
+    preview_data = []
     for row in found_rows:
-        print(row.to_list())
+        row_list = row.to_list()
+        print(row_list)
+        preview_data.append(row_list)
     print("===== End of Found Rows =====\n")
 
-    # Send rows back in the response for display
-    preview_data = [row.to_list() for row in found_rows]
-
-    return {"message": "Quote D rows found and printed to console.", "preview": preview_data}
+    return JSONResponse(content={"message": "Quote D rows found and printed to console.", "preview": preview_data}, status_code=200)
 
 @app.get("/download")
 async def download_file():
@@ -57,3 +59,4 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
+

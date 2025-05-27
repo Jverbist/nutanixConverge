@@ -45,7 +45,7 @@ async def process_quote_d(file: UploadFile = File(...)):
 
     filtered_rows = data_rows[data_rows['Parent Quote Name'].astype(str).str.startswith('XQ-', na=False)]
 
-    today_str = datatime.today().strftime('%Y-%m-%d')
+    today_str = datetime.today().strftime('%Y-%m-%d')
 
     wb = Workbook()
     ws = wb.active

@@ -101,7 +101,7 @@ async def process_quote_d(
             None,  # Salesdiscount
             None,  # Purchaseprice
             purchase_discount,  # PurchaseDiscount
-            "Duffel : BE Sales Stock",  # Location
+            "<Duffel : BE Sales Stock>",  # Location
             None,  # ContractStart
             None,  # ContractEnd
             None,  # Serial#Supported
@@ -128,6 +128,7 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
+
 
 
 

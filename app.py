@@ -5,13 +5,12 @@ import shutil
 import os
 import pandas as pd
 import numpy as np
-from openpyxl import load_workbook
+from openpyxl import Workbook
 
 app = FastAPI()
 
 UPLOAD_DIR = "uploaded_files"
 OUTPUT_PATH = "exported_quoteD.xlsx"
-TEMPLATE_PATH = "QuoteUpload template - semicolon delimited.csv"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.get("/", response_class=HTMLResponse)
@@ -45,18 +44,53 @@ async def process_quote_d(file: UploadFile = File(...)):
 
     filtered_rows = data_rows[data_rows['Parent Quote Name'].astype(str).str.startswith('XQ-', na=False)]
 
-    # Load the template workbook
-    wb = load_workbook(TEMPLATE_PATH)
+    # Create a new Excel workbook with expanded headers
+    wb = Workbook()
     ws = wb.active
+    ws.append([
+        "ExternalId", "Title", "Currency", "Date", "Reseller", "ResellerContact", "Expires", "ExpectedClose",
+        "EndUser", "BusinessUnit", "Item", "Quantity", "Salesprice", "Salesdiscount", "Purchaseprice",
+        "PurchaseDiscount", "Location", "ContractStart", "ContractEnd", "Serial#Supported", "Rebate",
+        "Opportunity", "Memo (Line)", "Quote ID (Line)", "VendorSpecialPriceApproval",
+        "VendorSpecialPriceApproval (Line)", "SalesCurrency", "SalesExchangeRate"
+    ])
 
-    start_row = 2  # Assuming headers are on row 1
     for _, row in filtered_rows.iterrows():
-        ws[f'B{start_row}'] = row.get('Quote Exp Date')  # (B) -> (G) Expires
-        ws[f'K{start_row}'] = row.get('Parent Quote Name')  # (A) -> (K) Item
-        ws[f'L{start_row}'] = row.get('Quantity')  # (K) -> (L) Quantity
-        start_row += 1
+        ws.append([
+            None,  # ExternalId
+            None,  # Title
+            None,  # Currency
+            None,  # Date
+            None,  # Reseller
+            None,  # ResellerContact
+            row.get('Quote Exp Date'),  # Expires
+            None,  # ExpectedClose
+            None,  # EndUser
+            None,  # BusinessUnit
+            row.get('Parent Quote Name'),  # Item
+            row.get('Quantity'),  # Quantity
+            None,  # Salesprice
+            None,  # Salesdiscount
+            None,  # Purchaseprice
+            None,  # PurchaseDiscount
+            None,  # Location
+            None,  # ContractStart
+            None,  # ContractEnd
+            None,  # Serial#Supported
+            None,  # Rebate
+            None,  # Opportunity
+            None,  # Memo (Line)
+            None,  # Quote ID (Line)
+            None,  # VendorSpecialPriceApproval
+            None,  # VendorSpecialPriceApproval (Line)
+            None,  # SalesCurrency
+            None   # SalesExchangeRate
+        ])
 
-    wb.save(OUTPUT_PATH)
+    try:
+        wb.save(OUTPUT_PATH)
+    except Exception as e:
+        return JSONResponse(content={"error": f"Failed to save output file: {str(e)}"}, status_code=500)
 
     return JSONResponse(content={"message": f"Data exported to {OUTPUT_PATH}"}, status_code=200)
 
@@ -66,5 +100,6 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
+
 
 

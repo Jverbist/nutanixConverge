@@ -5,12 +5,10 @@ import shutil
 import os
 import pandas as pd
 import numpy as np
-from openpyxl import load_workbook
 
 app = FastAPI()
 
 UPLOAD_DIR = "uploaded_files"
-TEMPLATE_PATH = "XQ-3352605.xlsx"
 OUTPUT_PATH = "exported_quoteD.xlsx"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -27,30 +25,31 @@ async def process_quote_d(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
 
     try:
-        if file.filename.endswith('.xlsx') or file.filename.endswith('.xls'):
-            df = pd.read_excel(file_path, header=None)
-        else:
-            df = pd.read_csv(file_path, sep=';', encoding='latin1', header=None)
+        df = pd.read_excel(file_path, header=None)
     except Exception as e:
         return JSONResponse(content={"error": f"Failed to read file: {str(e)}"}, status_code=400)
 
+    # Locate the row with 'Parent Quote Name'
     header_row_index = df[df.apply(lambda r: r.astype(str).str.contains('Parent Quote Name', case=False, na=False).any(), axis=1)].index
 
     if header_row_index.empty:
-        return JSONResponse(content={"error": "Could not locate the actual table header (Parent Quote Name row)."}, status_code=404)
+        return JSONResponse(content={"error": "Could not locate 'Parent Quote Name' header row."}, status_code=404)
 
     header_idx = header_row_index[0]
     data_start_idx = header_idx + 1
 
-    df_full = pd.read_excel(file_path, skiprows=data_start_idx, header=0)
+    # Extract headers from that row
+    header_row = df.iloc[header_idx].fillna('').tolist()
+    data_rows = df.iloc[data_start_idx:].reset_index(drop=True)
+    data_rows.columns = header_row
 
-    if 'Parent Quote Name' not in df_full.columns:
-        return JSONResponse(content={"error": "'Parent Quote Name' column not found in data."}, status_code=400)
+    if 'Parent Quote Name' not in data_rows.columns:
+        return JSONResponse(content={"error": "'Parent Quote Name' column still not found after header adjustment."}, status_code=400)
 
     combined_data = {}
-    for _, row in df_full.iterrows():
+    for _, row in data_rows.iterrows():
         key = str(row['Parent Quote Name']).strip()
-        row_data = row.drop(labels=[col for col in ['Parent Quote Name'] if col in row]).to_dict()
+        row_data = row.drop(labels=['Parent Quote Name']).replace({np.nan: None}).to_dict()
         if key not in combined_data:
             combined_data[key] = []
         combined_data[key].append(row_data)
@@ -70,4 +69,5 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
+
 

@@ -4,7 +4,7 @@ import shutil
 import os
 import pandas as pd
 from openpyxl import Workbook
-from datetime import datetime, timedelta
+from datetime import datetime
 import calendar
 
 app = FastAPI()
@@ -98,6 +98,14 @@ async def process_quote_d(
         except:
             purchase_discount = 0
 
+        purchase_price = row.get('List Price')
+        if pd.isna(purchase_price):
+            purchase_price = 0
+        try:
+            purchase_price = float(str(purchase_price).replace('$', '').replace(',', '').strip())
+        except:
+            purchase_price = 0
+
         external_id = f"{reseller}_{row.get('Parent Quote Name')}_{today_str}"
 
         ws.append([
@@ -115,7 +123,7 @@ async def process_quote_d(
             row.get('Quantity'),  # Quantity
             None,  # Salesprice
             None,  # Salesdiscount
-            None,  # Purchaseprice
+            purchase_price,  # Purchaseprice
             purchase_discount,  # PurchaseDiscount
             "<Duffel : BE Sales Stock>",  # Location
             None,  # ContractStart
@@ -144,6 +152,7 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
+
 
 
 

@@ -110,10 +110,8 @@ async def process_quote_d(
         except:
             list_price = 0
 
-        # Corrected purchase price formula: list price - discount
-        purchase_price = list_price * (1 - purchase_discount / 100)
+        purchase_price = list_price - (list_price * (purchase_discount / 100))
 
-        # Sales price calculation
         if product_code.startswith('NX'):
             base_sales_price = list_price * 2
         else:
@@ -126,7 +124,7 @@ async def process_quote_d(
 
         external_id = f"{reseller}_{row.get('Parent Quote Name')}_{today_str}"
 
-        print(f"Processing row: Product Code: {product_code}, List Price: {list_price}, Purchase Price: {purchase_price}, Sales Price: {sales_price}")
+        print(f"Processing row: Product Code: {product_code}, Purchase Price: {purchase_price}, Sales Price: {sales_price}")
 
         ws.append([
             external_id,  # ExternalId
@@ -142,7 +140,7 @@ async def process_quote_d(
             product_code,  # Item
             row.get('Quantity'),  # Quantity
             round(sales_price, 2),  # Salesprice
-            None,  # Salesdiscount
+            margin,  # Salesdiscount (from form)
             round(purchase_price, 2),  # Purchaseprice
             round(purchase_discount, 2),  # PurchaseDiscount
             "Duffel : BE Sales Stock",  # Location
@@ -172,7 +170,6 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
-
 
 
 

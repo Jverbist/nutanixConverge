@@ -43,6 +43,8 @@ async def process_quote_d(
     exchangeRate: float = Form(...),
     margin: float = Form(...)
 ):
+    print(f"Received currency: {currency}, exchangeRate: {exchangeRate}, margin: {margin}")
+
     file_path = os.path.join(UPLOAD_DIR, file.filename)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
@@ -121,6 +123,8 @@ async def process_quote_d(
 
         external_id = f"{reseller}_{row.get('Parent Quote Name')}_{today_str}"
 
+        print(f"Processing row: Product Code: {product_code}, Purchase Price: {purchase_price}, Sales Price: {sales_price}")
+
         ws.append([
             external_id,  # ExternalId
             None,  # Title
@@ -165,6 +169,7 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
+
 
 
 

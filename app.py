@@ -102,19 +102,22 @@ async def process_quote_d(
         except:
             purchase_discount = 0
 
-        purchase_price = row.get('List Price')
-        if pd.isna(purchase_price):
-            purchase_price = 0
+        list_price = row.get('List Price')
+        if pd.isna(list_price):
+            list_price = 0
         try:
-            purchase_price = float(str(purchase_price).replace('$', '').replace(',', '').strip())
+            list_price = float(str(list_price).replace('$', '').replace(',', '').strip())
         except:
-            purchase_price = 0
+            list_price = 0
+
+        # Corrected purchase price formula: list price - discount
+        purchase_price = list_price * (1 - purchase_discount / 100)
 
         # Sales price calculation
         if product_code.startswith('NX'):
-            base_sales_price = purchase_price * 2
+            base_sales_price = list_price * 2
         else:
-            base_sales_price = purchase_price
+            base_sales_price = list_price
 
         if currency.upper() == 'EUR':
             sales_price = base_sales_price * exchangeRate
@@ -123,7 +126,7 @@ async def process_quote_d(
 
         external_id = f"{reseller}_{row.get('Parent Quote Name')}_{today_str}"
 
-        print(f"Processing row: Product Code: {product_code}, Purchase Price: {purchase_price}, Sales Price: {sales_price}")
+        print(f"Processing row: Product Code: {product_code}, List Price: {list_price}, Purchase Price: {purchase_price}, Sales Price: {sales_price}")
 
         ws.append([
             external_id,  # ExternalId
@@ -138,11 +141,11 @@ async def process_quote_d(
             "Belgium",  # BusinessUnit
             product_code,  # Item
             row.get('Quantity'),  # Quantity
-            sales_price,  # Salesprice
+            round(sales_price, 2),  # Salesprice
             None,  # Salesdiscount
-            purchase_price,  # Purchaseprice
-            purchase_discount,  # PurchaseDiscount
-            "<Duffel : BE Sales Stock>",  # Location
+            round(purchase_price, 2),  # Purchaseprice
+            round(purchase_discount, 2),  # PurchaseDiscount
+            "Duffel : BE Sales Stock",  # Location
             None,  # ContractStart
             None,  # ContractEnd
             None,  # Serial#Supported

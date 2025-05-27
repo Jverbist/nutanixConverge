@@ -34,13 +34,6 @@ async def process_quote_d(file: UploadFile = File(...)):
     except Exception as e:
         return JSONResponse(content={"error": f"Failed to read file: {str(e)}"}, status_code=400)
 
-    print("\n===== Raw Data Preview =====")
-    print(df.head(50))  # show even more rows to locate headers
-    print("===== Data Shape =====")
-    print(f"Rows: {df.shape[0]}, Columns: {df.shape[1]}")
-    print("===== End of Preview =====\n")
-
-    # Find where the real header row (with column names) starts
     header_row_index = df[df.apply(lambda r: r.astype(str).str.contains('Parent Quote Name', case=False, na=False).any(), axis=1)].index
 
     if header_row_index.empty:
@@ -49,16 +42,24 @@ async def process_quote_d(file: UploadFile = File(...)):
     header_idx = header_row_index[0]
     data_start_idx = header_idx + 1
 
-    # Read again using that row as header
     df_full = pd.read_excel(file_path, skiprows=data_start_idx, header=0)
 
-    print("\n===== Parsed Table with Correct Headers =====")
-    print(df_full.head())
-    print("===== Columns =====")
-    print(df_full.columns.tolist())
-    print("===== End of Table Preview =====\n")
+    combined_data = {}
+    for _, row in df_full.iterrows():
+        key = str(row.get('Parent Quote Name', 'UNKNOWN')).strip()
+        row_data = row.drop('Parent Quote Name').to_dict()
+        if key not in combined_data:
+            combined_data[key] = []
+        combined_data[key].append(row_data)
 
-    return JSONResponse(content={"message": "Parsed Quote D table with correct headers. Check console for preview."}, status_code=200)
+    print("\n===== Combined Data Preview =====")
+    for k, v in combined_data.items():
+        print(f"Key: {k}")
+        for item in v:
+            print(item)
+    print("===== End of Combined Data =====\n")
+
+    return JSONResponse(content={"message": "Combined data by Parent Quote Name created. Check console for preview."}, status_code=200)
 
 @app.get("/download")
 async def download_file():

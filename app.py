@@ -6,6 +6,7 @@ import os
 import pandas as pd
 import numpy as np
 from openpyxl import Workbook
+from datetime import datetime
 
 app = FastAPI()
 
@@ -44,6 +45,8 @@ async def process_quote_d(file: UploadFile = File(...)):
 
     filtered_rows = data_rows[data_rows['Parent Quote Name'].astype(str).str.startswith('XQ-', na=False)]
 
+    today_str = datatime.today().strftime('%Y-%m-%d')
+
     wb = Workbook()
     ws = wb.active
     ws.append([
@@ -59,10 +62,10 @@ async def process_quote_d(file: UploadFile = File(...)):
             None,  # ExternalId
             None,  # Title
             None,  # Currency
-            None,  # Date
+            today_str,  # Date
             None,  # Reseller
             None,  # ResellerContact
-            row.get('Quote Exp Date'),  # Expires
+            None,  # Expires
             None,  # ExpectedClose
             None,  # EndUser
             None,  # BusinessUnit

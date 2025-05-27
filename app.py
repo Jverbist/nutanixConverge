@@ -44,7 +44,6 @@ async def process_quote_d(file: UploadFile = File(...)):
 
     filtered_rows = data_rows[data_rows['Parent Quote Name'].astype(str).str.startswith('XQ-', na=False)]
 
-    # Create a new Excel workbook with expanded headers
     wb = Workbook()
     ws = wb.active
     ws.append([
@@ -92,7 +91,7 @@ async def process_quote_d(file: UploadFile = File(...)):
     except Exception as e:
         return JSONResponse(content={"error": f"Failed to save output file: {str(e)}"}, status_code=500)
 
-    return JSONResponse(content={"message": f"Data exported to {OUTPUT_PATH}"}, status_code=200)
+    return JSONResponse(content={"message": f"Data exported successfully.", "output_file": "/download"}, status_code=200)
 
 @app.get("/download")
 async def download_file():
@@ -100,6 +99,5 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
-
 
 

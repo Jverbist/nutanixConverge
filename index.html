@@ -1,4 +1,3 @@
-
 <!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
@@ -13,7 +12,7 @@
         <h1 class="mb-4">Upload Nutanix Quote</h1>
         <form id="uploadForm" enctype="multipart/form-data">
             <div class="mb-3">
-                <label for="file" class="form-label">Select CSV file</label>
+                <label for="file" class="form-label">Select Excel file</label>
                 <input class="form-control" type="file" id="file" name="file" required>
             </div>
             <button type="submit" class="btn btn-primary">Upload and Process</button>
@@ -38,9 +37,11 @@
                 });
                 const result = await res.json();
                 if (result.output_file) {
-                    responseDiv.innerHTML = `<div class="alert alert-success">${result.message} <a href='/download' class='btn btn-success btn-sm ms-2'>Download Excel</a></div>`;
-                } else {
+                    responseDiv.innerHTML = `<div class="alert alert-success">${result.message} <a href='${result.output_file}' class='btn btn-success btn-sm ms-2'>Download Excel</a></div>`;
+                } else if (result.error) {
                     responseDiv.innerHTML = `<div class="alert alert-danger">Error: ${result.error}</div>`;
+                } else {
+                    responseDiv.innerHTML = `<div class="alert alert-warning">Unexpected response.</div>`;
                 }
             } catch (error) {
                 responseDiv.innerHTML = `<div class="alert alert-danger">Upload failed: ${error.message}</div>`;

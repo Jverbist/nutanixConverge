@@ -28,19 +28,19 @@ async def process_quote_d(file: UploadFile = File(...)):
 
     try:
         if file.filename.endswith('.xlsx') or file.filename.endswith('.xls'):
-            df = pd.read_excel(file_path)
+            df = pd.read_excel(file_path, header=None)
         else:
-            df = pd.read_csv(file_path, sep=';', encoding='latin1')
+            df = pd.read_csv(file_path, sep=';', encoding='latin1', header=None)
     except Exception as e:
         return JSONResponse(content={"error": f"Failed to read file: {str(e)}"}, status_code=400)
 
-    print("\n===== Loaded Data Preview =====")
-    print(df.head())
-    print("===== Columns Available =====")
-    print(df.columns.tolist())
+    print("\n===== Raw Data Preview =====")
+    print(df.head(20))  # print more rows to understand structure
+    print("===== Data Shape =====")
+    print(f"Rows: {df.shape[0]}, Columns: {df.shape[1]}")
     print("===== End of Preview =====\n")
 
-    return JSONResponse(content={"message": "File loaded successfully. Columns and first rows printed to server console."}, status_code=200)
+    return JSONResponse(content={"message": "File loaded successfully. Raw rows and shape printed to server console."}, status_code=200)
 
 @app.get("/download")
 async def download_file():

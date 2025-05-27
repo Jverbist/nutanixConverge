@@ -28,30 +28,19 @@ async def process_quote_d(file: UploadFile = File(...)):
 
     try:
         if file.filename.endswith('.xlsx') or file.filename.endswith('.xls'):
-            df = pd.read_excel(file_path, header=None)
+            df = pd.read_excel(file_path)
         else:
-            df = pd.read_csv(file_path, sep=';', encoding='latin1', header=None)
+            df = pd.read_csv(file_path, sep=';', encoding='latin1')
     except Exception as e:
         return JSONResponse(content={"error": f"Failed to read file: {str(e)}"}, status_code=400)
 
-    found_rows = []
-    for idx, row in df.iterrows():
-        if row.astype(str).str.contains('Quote D For distributor to quote to the reseller only', case=False, na=False).any():
-            cleaned_row = row.replace({np.nan: None, np.inf: None, -np.inf: None})
-            found_rows.append(cleaned_row)
+    print("\n===== Loaded Data Preview =====")
+    print(df.head())
+    print("===== Columns Available =====")
+    print(df.columns.tolist())
+    print("===== End of Preview =====\n")
 
-    if not found_rows:
-        return JSONResponse(content={"error": "No data found containing 'Quote D For distributor to quote to the reseller only'"}, status_code=404)
-
-    print("\n===== Quote D Rows Found =====")
-    preview_data = []
-    for row in found_rows:
-        row_list = row.to_list()
-        print(row_list)
-        preview_data.append(row_list)
-    print("===== End of Found Rows =====\n")
-
-    return JSONResponse(content={"message": "Quote D rows found and printed to console.", "preview": preview_data}, status_code=200)
+    return JSONResponse(content={"message": "File loaded successfully. Columns and first rows printed to server console."}, status_code=200)
 
 @app.get("/download")
 async def download_file():

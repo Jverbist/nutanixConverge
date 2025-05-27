@@ -35,27 +35,30 @@ async def process_quote_d(file: UploadFile = File(...)):
         return JSONResponse(content={"error": f"Failed to read file: {str(e)}"}, status_code=400)
 
     print("\n===== Raw Data Preview =====")
-    print(df.head(30))  # show more to locate useful rows
+    print(df.head(50))  # show even more rows to locate headers
     print("===== Data Shape =====")
     print(f"Rows: {df.shape[0]}, Columns: {df.shape[1]}")
     print("===== End of Preview =====\n")
 
-    # Find row where real table header starts (after 'Quote D' marker)
-    quote_d_row = df[df.apply(lambda r: r.astype(str).str.contains('Quote D', case=False, na=False).any(), axis=1)].index
+    # Find where the real header row (with column names) starts
+    header_row_index = df[df.apply(lambda r: r.astype(str).str.contains('Parent Quote Name', case=False, na=False).any(), axis=1)].index
 
-    if quote_d_row.empty:
-        return JSONResponse(content={"error": "No 'Quote D' marker found."}, status_code=404)
+    if header_row_index.empty:
+        return JSONResponse(content={"error": "Could not locate the actual table header (Parent Quote Name row)."}, status_code=404)
 
-    header_start_idx = quote_d_row[0] + 15  # skip down ~15 lines to table header (adjust if needed)
-    table_df = pd.read_excel(file_path, skiprows=header_start_idx)
+    header_idx = header_row_index[0]
+    data_start_idx = header_idx + 1
 
-    print("\n===== Extracted Table Preview =====")
-    print(table_df.head())
-    print("===== Table Columns =====")
-    print(table_df.columns.tolist())
+    # Read again using that row as header
+    df_full = pd.read_excel(file_path, skiprows=data_start_idx, header=0)
+
+    print("\n===== Parsed Table with Correct Headers =====")
+    print(df_full.head())
+    print("===== Columns =====")
+    print(df_full.columns.tolist())
     print("===== End of Table Preview =====\n")
 
-    return JSONResponse(content={"message": "Extracted Quote D table, preview printed to console."}, status_code=200)
+    return JSONResponse(content={"message": "Parsed Quote D table with correct headers. Check console for preview."}, status_code=200)
 
 @app.get("/download")
 async def download_file():
@@ -63,4 +66,3 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
-

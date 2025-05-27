@@ -3,7 +3,6 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 import shutil
 import os
 import pandas as pd
-import numpy as np
 from openpyxl import Workbook
 from datetime import datetime
 
@@ -53,21 +52,17 @@ async def process_quote_d(
         return JSONResponse(content={"error": f"Failed to read file: {str(e)}"}, status_code=400)
 
     header_row_index = df[df.apply(lambda r: r.astype(str).str.contains('Parent Quote Name', case=False, na=False).any(), axis=1)].index
-
     if header_row_index.empty:
         return JSONResponse(content={"error": "Could not locate 'Parent Quote Name' header row."}, status_code=404)
 
     header_idx = header_row_index[0]
     data_start_idx = header_idx + 1
-
     header_row = df.iloc[header_idx].fillna('').tolist()
     data_rows = df.iloc[data_start_idx:].reset_index(drop=True)
     data_rows.columns = header_row
-
     filtered_rows = data_rows[data_rows['Parent Quote Name'].astype(str).str.startswith('XQ-', na=False)]
 
     today_str = datetime.today().strftime('%Y-%m-%d')
-
     wb = Workbook()
     ws = wb.active
     ws.append([
@@ -79,12 +74,20 @@ async def process_quote_d(
     ])
 
     for _, row in filtered_rows.iterrows():
+        purchase_discount = row.get('Total Discount (%)')
+        if pd.isna(purchase_discount):
+            purchase_discount = 0
+        try:
+            purchase_discount = float(str(purchase_discount).replace('%', '').replace(',', '').strip())
+        except:
+            purchase_discount = 0
+
         ws.append([
             row.get('Parent Quote Name'),  # ExternalId
             None,  # Title
-            currency,  # Currency (from user)
-            today_str,  # Date (today)
-            reseller,  # Reseller (from user)
+            currency,  # Currency
+            today_str,  # Date
+            reseller,  # Reseller
             None,  # ResellerContact
             None,  # Expires
             None,  # ExpectedClose
@@ -95,7 +98,7 @@ async def process_quote_d(
             None,  # Salesprice
             None,  # Salesdiscount
             None,  # Purchaseprice
-            None,  # PurchaseDiscount
+            purchase_discount,  # PurchaseDiscount
             None,  # Location
             None,  # ContractStart
             None,  # ContractEnd
@@ -115,7 +118,7 @@ async def process_quote_d(
     except Exception as e:
         return JSONResponse(content={"error": f"Failed to save output file: {str(e)}"}, status_code=500)
 
-    return JSONResponse(content={"message": f"Data exported successfully.", "output_file": "/download"}, status_code=200)
+    return JSONResponse(content={"message": "Data exported successfully.", "output_file": "/download"}, status_code=200)
 
 @app.get("/download")
 async def download_file():
@@ -123,6 +126,7 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
+
 
 
 

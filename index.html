@@ -1,4 +1,3 @@
-
 <!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
@@ -7,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>Upload Nutanix Quote D</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 </head>
 <body>
     <div class="container mt-5">
@@ -18,9 +18,7 @@
             </div>
             <div class="mb-3">
                 <label for="reseller" class="form-label">Reseller</label>
-                <select class="form-select" id="reseller" name="reseller" required>
-                    <!-- Reseller options will be loaded here -->
-                </select>
+                <select class="form-select" id="reseller" name="reseller" required style="width: 100%"></select>
             </div>
             <div class="mb-3">
                 <label for="currency" class="form-label">Currency</label>
@@ -42,61 +40,49 @@
         <div id="response" class="mt-4"></div>
     </div>
 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            const resellerSelect = document.getElementById('reseller');
-            try {
-                const res = await fetch('/resellers');
-                const resellers = await res.json();
-                resellers.forEach(r => {
-                    const option = document.createElement('option');
-                    option.value = r;
-                    option.textContent = r;
-                    resellerSelect.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Failed to load resellers:', error);
-            }
-        });
+        $(document).ready(function() {
+            $('#reseller').select2({ placeholder: 'Select a reseller', allowClear: true });
 
-        const form = document.getElementById('uploadForm');
-        const responseDiv = document.getElementById('response');
-
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const fileInput = document.getElementById('file');
-            const resellerInput = document.getElementById('reseller').value;
-            const currencyInput = document.getElementById('currency').value;
-            const exchangeRateInput = document.getElementById('exchangeRate').value;
-            const marginInput = document.getElementById('margin').value;
-
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-            formData.append('reseller', resellerInput);
-            formData.append('currency', currencyInput);
-            formData.append('exchangeRate', exchangeRateInput);
-            formData.append('margin', marginInput);
-
-            try {
-                const res = await fetch('/process-quote-d', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await res.json();
-                if (result.output_file) {
-                    responseDiv.innerHTML = `<div class="alert alert-success">${result.message} <a href='${result.output_file}' class='btn btn-success btn-sm ms-2'>Download Excel</a></div>`;
-                } else if (result.error) {
-                    responseDiv.innerHTML = `<div class="alert alert-danger">Error: ${result.error}</div>`;
-                } else {
-                    responseDiv.innerHTML = `<div class="alert alert-warning">Unexpected response.</div>`;
+            $.ajax({
+                url: '/resellers',
+                method: 'GET',
+                success: function(data) {
+                    data.forEach(function(r) {
+                        const newOption = new Option(r, r, false, false);
+                        $('#reseller').append(newOption);
+                    });
+                },
+                error: function() {
+                    alert('Failed to load resellers.');
                 }
-            } catch (error) {
-                responseDiv.innerHTML = `<div class="alert alert-danger">Upload failed: ${error.message}</div>`;
-            }
+            });
+
+            $('#uploadForm').on('submit', async function(event) {
+                event.preventDefault();
+                const formData = new FormData(this);
+
+                try {
+                    const res = await fetch('/process-quote-d', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await res.json();
+                    if (result.output_file) {
+                        $('#response').html(`<div class="alert alert-success">${result.message} <a href='${result.output_file}' class='btn btn-success btn-sm ms-2'>Download Excel</a></div>`);
+                    } else if (result.error) {
+                        $('#response').html(`<div class="alert alert-danger">Error: ${result.error}</div>`);
+                    } else {
+                        $('#response').html(`<div class="alert alert-warning">Unexpected response.</div>`);
+                    }
+                } catch (error) {
+                    $('#response').html(`<div class="alert alert-danger">Upload failed: ${error.message}</div>`);
+                }
+            });
         });
     </script>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
-

@@ -31,7 +31,7 @@ async def get_resellers():
             if code and name and code != 'nan' and name != 'nan':
                 combined = f"{code} {name}"
                 resellers.append(combined)
-        return resellers
+        return sorted(resellers)
     except Exception as e:
         return JSONResponse(content={"error": f"Failed to load resellers: {str(e)}"}, status_code=500)
 
@@ -123,6 +123,7 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
+
 
 
 

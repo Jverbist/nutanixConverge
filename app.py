@@ -4,7 +4,8 @@ import shutil
 import os
 import pandas as pd
 from openpyxl import Workbook
-from datetime import datetime
+from datetime import datetime, timedelta
+import calendar
 
 app = FastAPI()
 
@@ -62,7 +63,22 @@ async def process_quote_d(
     data_rows.columns = header_row
     filtered_rows = data_rows[data_rows['Parent Quote Name'].astype(str).str.startswith('XQ-', na=False)]
 
-    today_str = datetime.today().strftime('%Y-%m-%d')
+    today = datetime.today()
+    today_str = today.strftime('%Y-%m-%d')
+
+    if currency.upper() == 'USD':
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        expires_date = today.replace(day=last_day).strftime('%Y-%m-%d')
+    else:  # EUR
+        day = today.day
+        if day <= 10:
+            expires_date = today.replace(day=10).strftime('%Y-%m-%d')
+        elif day <= 20:
+            expires_date = today.replace(day=20).strftime('%Y-%m-%d')
+        else:
+            last_day = calendar.monthrange(today.year, today.month)[1]
+            expires_date = today.replace(day=last_day).strftime('%Y-%m-%d')
+
     wb = Workbook()
     ws = wb.active
     ws.append([
@@ -91,7 +107,7 @@ async def process_quote_d(
             today_str,  # Date
             reseller,  # Reseller
             None,  # ResellerContact
-            None,  # Expires
+            expires_date,  # Expires
             None,  # ExpectedClose
             None,  # EndUser
             None,  # BusinessUnit
@@ -109,7 +125,7 @@ async def process_quote_d(
             None,  # Opportunity
             None,  # Memo (Line)
             None,  # Quote ID (Line)
-            row.get('Parent Quote Name'),  # VendorSpecialPriceApproval
+            None,  # VendorSpecialPriceApproval
             None,  # VendorSpecialPriceApproval (Line)
             currency,  # SalesCurrency
             exchangeRate  # SalesExchangeRate
@@ -128,6 +144,7 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
+
 
 
 

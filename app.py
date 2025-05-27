@@ -110,12 +110,14 @@ async def process_quote_d(
 
         # Sales price calculation
         if product_code.startswith('NX'):
-            sales_price = purchase_price * 2
+            base_sales_price = purchase_price * 2
         else:
-            sales_price = purchase_price
+            base_sales_price = purchase_price
 
         if currency.upper() == 'EUR':
-            sales_price = sales_price * exchangeRate
+            sales_price = base_sales_price * exchangeRate
+        else:
+            sales_price = base_sales_price
 
         external_id = f"{reseller}_{row.get('Parent Quote Name')}_{today_str}"
 
@@ -163,7 +165,6 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
-
 
 
 

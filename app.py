@@ -5,11 +5,13 @@ import shutil
 import os
 import pandas as pd
 import numpy as np
+from openpyxl import load_workbook
 
 app = FastAPI()
 
 UPLOAD_DIR = "uploaded_files"
 OUTPUT_PATH = "exported_quoteD.xlsx"
+TEMPLATE_PATH = "QuoteUpload template - semicolon delimited.csv"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.get("/", response_class=HTMLResponse)
@@ -29,7 +31,6 @@ async def process_quote_d(file: UploadFile = File(...)):
     except Exception as e:
         return JSONResponse(content={"error": f"Failed to read file: {str(e)}"}, status_code=400)
 
-    # Locate the row with 'Parent Quote Name'
     header_row_index = df[df.apply(lambda r: r.astype(str).str.contains('Parent Quote Name', case=False, na=False).any(), axis=1)].index
 
     if header_row_index.empty:
@@ -38,30 +39,26 @@ async def process_quote_d(file: UploadFile = File(...)):
     header_idx = header_row_index[0]
     data_start_idx = header_idx + 1
 
-    # Extract headers and data
     header_row = df.iloc[header_idx].fillna('').tolist()
     data_rows = df.iloc[data_start_idx:].reset_index(drop=True)
     data_rows.columns = header_row
 
-    # Filter only valid quote rows (exclude TOTAL, disclaimers, footnotes)
     filtered_rows = data_rows[data_rows['Parent Quote Name'].astype(str).str.startswith('XQ-', na=False)]
 
-    combined_data = {}
+    # Load the template workbook
+    wb = load_workbook(TEMPLATE_PATH)
+    ws = wb.active
+
+    start_row = 2  # Assuming headers are on row 1
     for _, row in filtered_rows.iterrows():
-        key = str(row['Parent Quote Name']).strip()
-        row_data = row.drop(labels=['Parent Quote Name']).replace({np.nan: None}).to_dict()
-        if key not in combined_data:
-            combined_data[key] = []
-        combined_data[key].append(row_data)
+        ws[f'B{start_row}'] = row.get('Quote Exp Date')  # (B) -> (G) Expires
+        ws[f'K{start_row}'] = row.get('Parent Quote Name')  # (A) -> (K) Item
+        ws[f'L{start_row}'] = row.get('Quantity')  # (K) -> (L) Quantity
+        start_row += 1
 
-    print("\n===== Combined Filtered Data Preview =====")
-    for k, v in combined_data.items():
-        print(f"Key: {k}")
-        for item in v:
-            print(item)
-    print("===== End of Filtered Data =====\n")
+    wb.save(OUTPUT_PATH)
 
-    return JSONResponse(content={"message": "Filtered and combined data by Parent Quote Name created. Check console for preview."}, status_code=200)
+    return JSONResponse(content={"message": f"Data exported to {OUTPUT_PATH}"}, status_code=200)
 
 @app.get("/download")
 async def download_file():
@@ -69,4 +66,5 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
+
 

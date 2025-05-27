@@ -110,7 +110,7 @@ async def process_quote_d(
             expires_date,  # Expires
             None,  # ExpectedClose
             None,  # EndUser
-            None,  # BusinessUnit
+            "Belgium",  # BusinessUnit
             row.get('Product Code'),  # Item
             row.get('Quantity'),  # Quantity
             None,  # Salesprice
@@ -125,7 +125,7 @@ async def process_quote_d(
             None,  # Opportunity
             None,  # Memo (Line)
             None,  # Quote ID (Line)
-            None,  # VendorSpecialPriceApproval
+            row.get('Parent Quote Name'),  # VendorSpecialPriceApproval
             None,  # VendorSpecialPriceApproval (Line)
             currency,  # SalesCurrency
             exchangeRate  # SalesExchangeRate

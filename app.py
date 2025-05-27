@@ -44,10 +44,13 @@ async def process_quote_d(file: UploadFile = File(...)):
 
     df_full = pd.read_excel(file_path, skiprows=data_start_idx, header=0)
 
+    if 'Parent Quote Name' not in df_full.columns:
+        return JSONResponse(content={"error": "'Parent Quote Name' column not found in data."}, status_code=400)
+
     combined_data = {}
     for _, row in df_full.iterrows():
-        key = str(row.get('Parent Quote Name', 'UNKNOWN')).strip()
-        row_data = row.drop('Parent Quote Name').to_dict()
+        key = str(row['Parent Quote Name']).strip()
+        row_data = row.drop(labels=[col for col in ['Parent Quote Name'] if col in row]).to_dict()
         if key not in combined_data:
             combined_data[key] = []
         combined_data[key].append(row_data)
@@ -67,3 +70,4 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
+

@@ -79,6 +79,11 @@ async def process_quote_d(
     ])
 
     for _, row in filtered_rows.iterrows():
+        purchase_discount = row.get('Total Discount (%)', 0)
+        if pd.isna(purchase_discount):
+            purchase_discount = 0
+
+    for _, row in filtered_rows.iterrows():
         ws.append([
             row.get('Parent Quote Name'),  # ExternalId
             None,  # Title
@@ -95,7 +100,7 @@ async def process_quote_d(
             None,  # Salesprice
             None,  # Salesdiscount
             None,  # Purchaseprice
-            None,  # PurchaseDiscount
+            purchase_discount,  # PurchaseDiscount
             None,  # Location
             None,  # ContractStart
             None,  # ContractEnd

@@ -35,12 +35,27 @@ async def process_quote_d(file: UploadFile = File(...)):
         return JSONResponse(content={"error": f"Failed to read file: {str(e)}"}, status_code=400)
 
     print("\n===== Raw Data Preview =====")
-    print(df.head(20))  # print more rows to understand structure
+    print(df.head(30))  # show more to locate useful rows
     print("===== Data Shape =====")
     print(f"Rows: {df.shape[0]}, Columns: {df.shape[1]}")
     print("===== End of Preview =====\n")
 
-    return JSONResponse(content={"message": "File loaded successfully. Raw rows and shape printed to server console."}, status_code=200)
+    # Find row where real table header starts (after 'Quote D' marker)
+    quote_d_row = df[df.apply(lambda r: r.astype(str).str.contains('Quote D', case=False, na=False).any(), axis=1)].index
+
+    if quote_d_row.empty:
+        return JSONResponse(content={"error": "No 'Quote D' marker found."}, status_code=404)
+
+    header_start_idx = quote_d_row[0] + 15  # skip down ~15 lines to table header (adjust if needed)
+    table_df = pd.read_excel(file_path, skiprows=header_start_idx)
+
+    print("\n===== Extracted Table Preview =====")
+    print(table_df.head())
+    print("===== Table Columns =====")
+    print(table_df.columns.tolist())
+    print("===== End of Table Preview =====\n")
+
+    return JSONResponse(content={"message": "Extracted Quote D table, preview printed to console."}, status_code=200)
 
 @app.get("/download")
 async def download_file():

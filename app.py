@@ -90,6 +90,8 @@ async def process_quote_d(
     ])
 
     for _, row in filtered_rows.iterrows():
+        product_code = str(row.get('Product Code')).strip()
+
         purchase_discount = row.get('Total Discount (%)')
         if pd.isna(purchase_discount):
             purchase_discount = 0
@@ -106,6 +108,15 @@ async def process_quote_d(
         except:
             purchase_price = 0
 
+        # Sales price calculation
+        if product_code.startswith('NX'):
+            sales_price = purchase_price * 2
+        else:
+            sales_price = purchase_price
+
+        if currency.upper() == 'EUR':
+            sales_price = sales_price * exchangeRate
+
         external_id = f"{reseller}_{row.get('Parent Quote Name')}_{today_str}"
 
         ws.append([
@@ -119,9 +130,9 @@ async def process_quote_d(
             None,  # ExpectedClose
             None,  # EndUser
             "Belgium",  # BusinessUnit
-            row.get('Product Code'),  # Item
+            product_code,  # Item
             row.get('Quantity'),  # Quantity
-            None,  # Salesprice
+            sales_price,  # Salesprice
             None,  # Salesdiscount
             purchase_price,  # Purchaseprice
             purchase_discount,  # PurchaseDiscount
@@ -152,6 +163,7 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
+
 
 
 

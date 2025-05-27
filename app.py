@@ -1,5 +1,4 @@
-# app.py
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 import shutil
 import os
@@ -12,6 +11,7 @@ app = FastAPI()
 
 UPLOAD_DIR = "uploaded_files"
 OUTPUT_PATH = "exported_quoteD.xlsx"
+RESELLER_FILE = "Reseller.xlsx"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.get("/", response_class=HTMLResponse)
@@ -20,8 +20,23 @@ async def index():
         html_content = file.read()
     return HTMLResponse(content=html_content)
 
+@app.get("/resellers")
+async def get_resellers():
+    try:
+        df = pd.read_excel(RESELLER_FILE)
+        resellers = df.iloc[:, 0].dropna().unique().tolist()
+        return resellers
+    except Exception as e:
+        return JSONResponse(content={"error": f"Failed to load resellers: {str(e)}"}, status_code=500)
+
 @app.post("/process-quote-d")
-async def process_quote_d(file: UploadFile = File(...)):
+async def process_quote_d(
+    file: UploadFile = File(...),
+    reseller: str = Form(...),
+    currency: str = Form(...),
+    exchangeRate: float = Form(...),
+    margin: float = Form(...)
+):
     file_path = os.path.join(UPLOAD_DIR, file.filename)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
@@ -61,9 +76,9 @@ async def process_quote_d(file: UploadFile = File(...)):
         ws.append([
             row.get('Parent Quote Name'),  # ExternalId
             None,  # Title
-            None,  # Currency
-            today_str,  # Date
-            None,  # Reseller
+            currency,  # Currency (from user)
+            today_str,  # Date (today)
+            reseller,  # Reseller (from user)
             None,  # ResellerContact
             None,  # Expires
             None,  # ExpectedClose
@@ -85,8 +100,8 @@ async def process_quote_d(file: UploadFile = File(...)):
             None,  # Quote ID (Line)
             None,  # VendorSpecialPriceApproval
             None,  # VendorSpecialPriceApproval (Line)
-            None,  # SalesCurrency
-            None   # SalesExchangeRate
+            currency,  # SalesCurrency
+            exchangeRate  # SalesExchangeRate
         ])
 
     try:

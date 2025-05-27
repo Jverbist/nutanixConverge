@@ -82,8 +82,10 @@ async def process_quote_d(
         except:
             purchase_discount = 0
 
+        external_id = f"{reseller}_{row.get('Parent Quote Name')}_{today_str}"
+
         ws.append([
-            row.get('Parent Quote Name'),  # ExternalId
+            external_id,  # ExternalId
             None,  # Title
             currency,  # Currency
             today_str,  # Date
@@ -99,7 +101,7 @@ async def process_quote_d(
             None,  # Salesdiscount
             None,  # Purchaseprice
             purchase_discount,  # PurchaseDiscount
-            None,  # Location
+            "Duffel : BE Sales Stock",  # Location
             None,  # ContractStart
             None,  # ContractEnd
             None,  # Serial#Supported
@@ -107,7 +109,7 @@ async def process_quote_d(
             None,  # Opportunity
             None,  # Memo (Line)
             None,  # Quote ID (Line)
-            None,  # VendorSpecialPriceApproval
+            row.get('Parent Quote Name'),  # VendorSpecialPriceApproval
             None,  # VendorSpecialPriceApproval (Line)
             currency,  # SalesCurrency
             exchangeRate  # SalesExchangeRate

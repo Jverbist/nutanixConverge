@@ -8,10 +8,11 @@ from datetime import datetime
 import calendar
 from fastapi.staticfiles import StaticFiles
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 app = FastAPI()
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 UPLOAD_DIR = "uploaded_files"
 OUTPUT_PATH = "exported_quoteD.xlsx"

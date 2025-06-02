@@ -6,6 +6,10 @@ import pandas as pd
 from openpyxl import Workbook
 from datetime import datetime
 import calendar
+from fastapi.staticfiles import StaticFiles
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 app = FastAPI()
 

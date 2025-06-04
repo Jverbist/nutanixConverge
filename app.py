@@ -6,13 +6,8 @@ import pandas as pd
 from openpyxl import Workbook
 from datetime import datetime
 import calendar
-from fastapi.staticfiles import StaticFiles
-
-
 
 app = FastAPI()
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 UPLOAD_DIR = "uploaded_files"
 OUTPUT_PATH = "exported_quoteD.xlsx"
@@ -99,13 +94,13 @@ async def process_quote_d(
     for _, row in filtered_rows.iterrows():
         product_code = str(row.get('Product Code')).strip()
 
-        purchase_discount = row.get('Total Discount (%)')
-        if pd.isna(purchase_discount):
-            purchase_discount = 0
+        discount = row.get('Total Discount (%)')
+        if pd.isna(discount):
+            discount = 0
         try:
-            purchase_discount = float(str(purchase_discount).replace('%', '').replace(',', '').strip())
+            discount = float(str(discount).replace('%', '').replace(',', '').strip())
         except:
-            purchase_discount = 0
+            discount = 0
 
         list_price = row.get('List Price')
         if pd.isna(list_price):
@@ -115,21 +110,15 @@ async def process_quote_d(
         except:
             list_price = 0
 
-        purchase_price = list_price - (list_price * (purchase_discount / 100))
+        net_price = list_price * (1 - discount / 100)
+        sales_price = round(net_price / (1 - margin / 100), 2)
+        sales_discount = round(1 - (net_price / sales_price), 2) if sales_price != 0 else 0
 
-        if product_code.startswith('NX'):
-            base_sales_price = list_price * 2
-        else:
-            base_sales_price = list_price
-
-        if currency.upper() == 'EUR':
-            sales_price = base_sales_price * exchangeRate
-        else:
-            sales_price = base_sales_price
+        purchase_price = net_price
 
         external_id = f"{reseller}_{row.get('Parent Quote Name')}_{today_str}"
 
-        print(f"Processing row: Product Code: {product_code}, Purchase Price: {purchase_price}, Sales Price: {sales_price}")
+        print(f"Processing row: Product Code: {product_code}, List Price: {list_price}, Discount: {discount}, Net Price: {net_price}, Sales Price: {sales_price}, Sales Discount: {sales_discount}")
 
         ws.append([
             external_id,  # ExternalId
@@ -144,10 +133,10 @@ async def process_quote_d(
             "Belgium",  # BusinessUnit
             product_code,  # Item
             row.get('Quantity'),  # Quantity
-            round(sales_price, 2),  # Salesprice
-            margin,  # Salesdiscount (from form)
+            sales_price,  # Salesprice
+            f"{int(sales_discount * 100)}%",  # Salesdiscount
             round(purchase_price, 2),  # Purchaseprice
-            round(purchase_discount, 2),  # PurchaseDiscount
+            f"{int(discount)}%",  # PurchaseDiscount
             "Duffel : BE Sales Stock",  # Location
             None,  # ContractStart
             None,  # ContractEnd
@@ -175,11 +164,6 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
-
-
-
-
-
 
 
 

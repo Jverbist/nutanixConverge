@@ -110,15 +110,31 @@ async def process_quote_d(
         except:
             list_price = 0
 
-        net_price = list_price * (1 - discount / 100)
-        sales_price = round(net_price / (1 - margin / 100), 2)
-        sales_discount = round(1 - (net_price / sales_price), 2) if sales_price != 0 else 0
+        # Sale price from the quote = Purchase Price
+        quote_sale_price = row.get('Sale Price')
+        if pd.isna(quote_sale_price):
+            quote_sale_price = 0
+        try:
+            quote_sale_price = float(str(quote_sale_price).replace('$', '').replace(',', '').strip())
+        except:
+            quote_sale_price = 0
 
-        purchase_price = net_price
+        # Netto quote price (for sales discount calculation)
+        netto_price = list_price * (1 - discount / 100)
+        # Calculated sales price based on margin
+        sales_price = round(quote_sale_price / (1 - margin / 100), 2) if quote_sale_price > 0 else 0
+
+        # Sales discount calculated based on actual quote price and netto
+        try:
+            sales_discount = round(1 - (netto_price / quote_sale_price), 2) if quote_sale_price else 0
+        except:
+            sales_discount = 0
+
+        purchase_price = quote_sale_price
 
         external_id = f"{reseller}_{row.get('Parent Quote Name')}_{today_str}"
 
-        print(f"Processing row: Product Code: {product_code}, List Price: {list_price}, Discount: {discount}, Net Price: {net_price}, Sales Price: {sales_price}, Sales Discount: {sales_discount}")
+        print(f"Processing row: Product Code: {product_code}, Quote Sale Price: {quote_sale_price}, Netto: {netto_price}, Sales Price: {sales_price}, Sales Discount: {sales_discount}")
 
         ws.append([
             external_id,  # ExternalId
@@ -164,6 +180,5 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
-
 
 

@@ -120,7 +120,11 @@ async def process_quote_d(
 
         netto = list_price * (1 - discount / 100)
         purchase_price = netto
-        sales_price = sale_price_quote
+
+        if product_code.startswith("NX"):
+            sales_price = netto * 2 * exchangeRate if currency.upper() == 'EUR' else netto * 2
+        else:
+            sales_price = netto * exchangeRate if currency.upper() == 'EUR' else netto
 
         if sales_price > 0:
             sales_discount = round(1 - (netto / sales_price), 2)
@@ -175,4 +179,5 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
+
 

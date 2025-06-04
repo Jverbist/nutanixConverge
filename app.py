@@ -110,31 +110,26 @@ async def process_quote_d(
         except:
             list_price = 0
 
-        # Sale price from the quote = Purchase Price
-        quote_sale_price = row.get('Sale Price')
-        if pd.isna(quote_sale_price):
-            quote_sale_price = 0
+        sale_price_quote = row.get('Sale Price')
+        if pd.isna(sale_price_quote):
+            sale_price_quote = 0
         try:
-            quote_sale_price = float(str(quote_sale_price).replace('$', '').replace(',', '').strip())
+            sale_price_quote = float(str(sale_price_quote).replace('$', '').replace(',', '').strip())
         except:
-            quote_sale_price = 0
+            sale_price_quote = 0
 
-        # Netto quote price (for sales discount calculation)
-        netto_price = list_price * (1 - discount / 100)
-        # Calculated sales price based on margin
-        sales_price = round(quote_sale_price / (1 - margin / 100), 2) if quote_sale_price > 0 else 0
+        netto = list_price * (1 - discount / 100)
+        purchase_price = netto
+        sales_price = sale_price_quote
 
-        # Sales discount calculated based on actual quote price and netto
-        try:
-            sales_discount = round(1 - (netto_price / quote_sale_price), 2) if quote_sale_price else 0
-        except:
+        if sales_price > 0:
+            sales_discount = round(1 - (netto / sales_price), 2)
+        else:
             sales_discount = 0
-
-        purchase_price = quote_sale_price
 
         external_id = f"{reseller}_{row.get('Parent Quote Name')}_{today_str}"
 
-        print(f"Processing row: Product Code: {product_code}, Quote Sale Price: {quote_sale_price}, Netto: {netto_price}, Sales Price: {sales_price}, Sales Discount: {sales_discount}")
+        print(f"Processing row: Product Code: {product_code}, List Price: {list_price}, Discount: {discount}, Sale Price: {sales_price}, Netto: {netto}, Sales Discount: {sales_discount}")
 
         ws.append([
             external_id,  # ExternalId
@@ -149,7 +144,7 @@ async def process_quote_d(
             "Belgium",  # BusinessUnit
             product_code,  # Item
             row.get('Quantity'),  # Quantity
-            sales_price,  # Salesprice
+            round(sales_price, 2),  # Salesprice
             f"{int(sales_discount * 100)}%",  # Salesdiscount
             round(purchase_price, 2),  # Purchaseprice
             f"{int(discount)}%",  # PurchaseDiscount
@@ -180,5 +175,4 @@ async def download_file():
         return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
     else:
         return JSONResponse(content={"error": "No exported file found."}, status_code=404)
-
 

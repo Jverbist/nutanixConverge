@@ -28,12 +28,11 @@ async def get_resellers():
         for _, row in df.iterrows():
             code = str(row[0]).strip()
             name = str(row[1]).strip() if len(row) > 1 else ""
-            if code and name and code != 'nan' and name != 'nan':
-                combined = f"{code} {name}"
-                resellers.append(combined)
+            if code and name and code.lower() != 'nan' and name.lower() != 'nan':
+                resellers.append(f"{code} {name}")
         return sorted(resellers)
     except Exception as e:
-        return JSONResponse(content={"error": f"Failed to load resellers: {str(e)}"}, status_code=500)
+        return JSONResponse(content={"error": f"Failed to load resellers: {e}"}, status_code=500)
 
 @app.post("/process-quote-d")
 async def process_quote_d(
@@ -43,43 +42,39 @@ async def process_quote_d(
     exchangeRate: float = Form(...),
     margin: float = Form(...)
 ):
-    print(f"Received currency: {currency}, exchangeRate: {exchangeRate}, margin: {margin}")
-
     file_path = os.path.join(UPLOAD_DIR, file.filename)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
     try:
-        df = pd.read_excel(file_path, header=None)
+        raw = pd.read_excel(file_path, header=None)
     except Exception as e:
-        return JSONResponse(content={"error": f"Failed to read file: {str(e)}"}, status_code=400)
+        return JSONResponse(content={"error": f"Failed to read file: {e}"}, status_code=400)
 
-    header_row_index = df[df.apply(lambda r: r.astype(str).str.contains('Parent Quote Name', case=False, na=False).any(), axis=1)].index
-    if header_row_index.empty:
+    header_idx = raw[raw.apply(lambda r: r.astype(str).str.contains('Parent Quote Name', case=False, na=False).any(), axis=1)].index
+    if header_idx.empty:
         return JSONResponse(content={"error": "Could not locate 'Parent Quote Name' header row."}, status_code=404)
-
-    header_idx = header_row_index[0]
-    data_start_idx = header_idx + 1
-    header_row = df.iloc[header_idx].fillna('').tolist()
-    data_rows = df.iloc[data_start_idx:].reset_index(drop=True)
-    data_rows.columns = header_row
-    filtered_rows = data_rows[data_rows['Parent Quote Name'].astype(str).str.startswith('XQ-', na=False)]
+    header_idx = header_idx[0]
+    data = raw.iloc[header_idx+1:].reset_index(drop=True)
+    data.columns = raw.iloc[header_idx].fillna('').tolist()
+    filtered = data[data['Parent Quote Name'].astype(str).str.startswith('XQ-', na=False)]
 
     today = datetime.today()
-    today_str = today.strftime('%Y-%m-%d')
+    # format date as DD/MM/YYYY
+    today_str = today.strftime('%d/%m/%Y')
 
     if currency.upper() == 'USD':
         last_day = calendar.monthrange(today.year, today.month)[1]
-        expires_date = today.replace(day=last_day).strftime('%Y-%m-%d')
-    else:  # EUR
+        expires_date = today.replace(day=last_day).strftime('%d/%m/%Y')
+    else:
         day = today.day
         if day <= 10:
-            expires_date = today.replace(day=10).strftime('%Y-%m-%d')
+            expires_date = today.replace(day=10).strftime('%d/%m/%Y')
         elif day <= 20:
-            expires_date = today.replace(day=20).strftime('%Y-%m-%d')
+            expires_date = today.replace(day=20).strftime('%d/%m/%Y')
         else:
             last_day = calendar.monthrange(today.year, today.month)[1]
-            expires_date = today.replace(day=last_day).strftime('%Y-%m-%d')
+            expires_date = today.replace(day=last_day).strftime('%d/%m/%Y')
 
     wb = Workbook()
     ws = wb.active
@@ -91,9 +86,7 @@ async def process_quote_d(
         "VendorSpecialPriceApproval (Line)", "SalesCurrency", "SalesExchangeRate"
     ])
 
-    for _, row in filtered_rows.iterrows():
-        product_code = str(row.get('Product Code')).strip()
-
+    for _, row in filtered.iterrows():
         discount = row.get('Total Discount (%)')
         if pd.isna(discount):
             discount = 0
@@ -110,74 +103,62 @@ async def process_quote_d(
         except:
             list_price = 0
 
-        sale_price_quote = row.get('Sale Price')
-        if pd.isna(sale_price_quote):
-            sale_price_quote = 0
-        try:
-            sale_price_quote = float(str(sale_price_quote).replace('$', '').replace(',', '').strip())
-        except:
-            sale_price_quote = 0
+        # calculate net price after discount
+        net_price = list_price * (1 - discount / 100)
+        # purchase price equals list price
+        purchase_price = list_price
 
-        netto = list_price * (1 - discount / 100)
-        purchase_price = netto
-
-        if product_code.startswith("NX"):
-            sales_price = netto * 2 * exchangeRate if currency.upper() == 'EUR' else netto * 2
+        if str(row.get('Product Code')).strip().startswith("NX"):
+            sales_price = net_price * (2 * exchangeRate) if currency.upper() == 'EUR' else net_price * 2
         else:
-            sales_price = netto * exchangeRate if currency.upper() == 'EUR' else netto
+            sales_price = net_price * exchangeRate if currency.upper() == 'EUR' else net_price
 
-        if sales_price > 0:
-            sales_discount = round(1 - (netto / sales_price), 2)
-        else:
-            sales_discount = 0
+        sales_discount = round(1 - (net_price / sales_price), 2) if sales_price > 0 else 0
 
         external_id = f"{reseller}_{row.get('Parent Quote Name')}_{today_str}"
-
-        print(f"Processing row: Product Code: {product_code}, List Price: {list_price}, Discount: {discount}, Sale Price: {sales_price}, Netto: {netto}, Sales Discount: {sales_discount}")
+        purchase_discount_str = f"{int(discount)}%"
 
         ws.append([
-            external_id,  # ExternalId
-            None,  # Title
-            currency,  # Currency
-            today_str,  # Date
-            reseller,  # Reseller
-            None,  # ResellerContact
-            expires_date,  # Expires
-            None,  # ExpectedClose
-            None,  # EndUser
-            "Belgium",  # BusinessUnit
-            product_code,  # Item
-            row.get('Quantity'),  # Quantity
-            round(sales_price, 2),  # Salesprice
-            f"{int(sales_discount * 100)}%",  # Salesdiscount
-            round(purchase_price, 2),  # Purchaseprice
-            f"{int(discount)}%",  # PurchaseDiscount
-            "Duffel : BE Sales Stock",  # Location
-            None,  # ContractStart
-            None,  # ContractEnd
-            None,  # Serial#Supported
-            None,  # Rebate
-            None,  # Opportunity
-            None,  # Memo (Line)
-            None,  # Quote ID (Line)
-            row.get('Parent Quote Name'),  # VendorSpecialPriceApproval
-            None,  # VendorSpecialPriceApproval (Line)
-            currency,  # SalesCurrency
-            exchangeRate  # SalesExchangeRate
+            external_id,
+            None,
+            currency,
+            today_str,
+            reseller,
+            None,
+            expires_date,
+            None,
+            None,
+            "Belgium",
+            str(row.get('Product Code')).strip(),
+            row.get('Quantity'),
+            round(sales_price, 2),
+            f"{int(sales_discount * 100)}%",
+            round(purchase_price, 2),
+            purchase_discount_str,
+            "Duffel : BE Sales Stock",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            row.get('Parent Quote Name'),
+            None,
+            currency,
+            exchangeRate
         ])
 
     try:
         wb.save(OUTPUT_PATH)
     except Exception as e:
-        return JSONResponse(content={"error": f"Failed to save output file: {str(e)}"}, status_code=500)
+        return JSONResponse(content={"error": f"Failed to save output file: {e}"}, status_code=500)
 
     return JSONResponse(content={"message": "Data exported successfully.", "output_file": "/download"}, status_code=200)
 
 @app.get("/download")
 async def download_file():
     if os.path.exists(OUTPUT_PATH):
-        return FileResponse(OUTPUT_PATH, filename="exported_quoteD.xlsx")
-    else:
-        return JSONResponse(content={"error": "No exported file found."}, status_code=404)
-
+        return FileResponse(OUTPUT_PATH, filename=os.path.basename(OUTPUT_PATH))
+    return JSONResponse(content={"error": "No exported file found."}, status_code=404)
 

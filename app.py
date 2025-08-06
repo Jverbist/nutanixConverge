@@ -91,7 +91,7 @@ async def process_quote_d(
     ])
 
     # Clean reseller for ExternalId (remove spaces)
-    reseller_clean = reseller.replace(' ', '')
+    reseller_clean = reseller.replace(' ', '_')
 
     for _, row in filtered.iterrows():
         # Parse discount
@@ -157,4 +157,5 @@ async def download_file():
     if os.path.exists(OUTPUT_PATH):
         return FileResponse(OUTPUT_PATH, filename=os.path.basename(OUTPUT_PATH))
     return JSONResponse(content={"error":"No exported file found."}, status_code=404)
+
 

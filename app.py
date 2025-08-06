@@ -120,11 +120,10 @@ async def process_quote_d(
         except:
             vendor_price = 0
 
-        # Calculate net price after discount
+                # Calculate net price after discount
         net_price = lp * (1 - disc/100)
-        # Purchase price equals vendor sale price after discount
-        purchase_price = vendor_price * (1 - disc/100)
-        purchase_price = lp
+        # Purchase price equals vendor sale price
+        purchase_price = vendor_price
 
         # Determine base sales price
         code = str(row.get('Product Code')).strip()

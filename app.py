@@ -111,9 +111,19 @@ async def process_quote_d(
         except:
             lp = 0
 
+                # Parse vendor sale price
+        vendor_price = row.get('Sale Price')
+        if pd.isna(vendor_price):
+            vendor_price = 0
+        try:
+            vendor_price = float(str(vendor_price).replace('$','').replace(',','').strip())
+        except:
+            vendor_price = 0
+
         # Calculate net price after discount
         net_price = lp * (1 - disc/100)
-        # Purchase price = list price
+        # Purchase price equals vendor sale price after discount
+        purchase_price = vendor_price * (1 - disc/100)
         purchase_price = lp
 
         # Determine base sales price
@@ -157,5 +167,4 @@ async def download_file():
     if os.path.exists(OUTPUT_PATH):
         return FileResponse(OUTPUT_PATH, filename=os.path.basename(OUTPUT_PATH))
     return JSONResponse(content={"error":"No exported file found."}, status_code=404)
-
 

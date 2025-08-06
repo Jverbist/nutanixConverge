@@ -12,13 +12,13 @@ app = FastAPI()
 UPLOAD_DIR = "uploaded_files"
 OUTPUT_PATH = "exported_quoteD.xlsx"
 RESELLER_FILE = "Reseller.xlsx"
+# Ensure upload directory exists
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
     with open("index.html", "r") as file:
-        html_content = file.read()
-    return HTMLResponse(content=html_content)
+        return HTMLResponse(content=file.read())
 
 @app.get("/resellers")
 async def get_resellers():
@@ -38,143 +38,123 @@ async def get_resellers():
 async def process_quote_d(
     file: UploadFile = File(...),
     reseller: str = Form(...),
-    enduser: str = Form(...),
     currency: str = Form(...),
     exchangeRate: float = Form(...),
     margin: float = Form(...)
 ):
-    # Save uploaded file
+    # Save uploaded file to disk
     file_path = os.path.join(UPLOAD_DIR, file.filename)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Read Excel
+    # Read raw Excel with unknown header row
     try:
         raw = pd.read_excel(file_path, header=None)
     except Exception as e:
         return JSONResponse(content={"error": f"Failed to read file: {e}"}, status_code=400)
 
-    # Locate header row
-    header_idx = raw[raw.apply(lambda r: r.astype(str).str.contains('Parent Quote Name', case=False, na=False).any(), axis=1)].index
+    # Find header row containing 'Parent Quote Name'
+    header_idx = raw[raw.apply(lambda row: row.astype(str).str.contains('Parent Quote Name', case=False, na=False).any(), axis=1)].index
     if header_idx.empty:
         return JSONResponse(content={"error": "Could not locate 'Parent Quote Name' header row."}, status_code=404)
     header_idx = header_idx[0]
     data = raw.iloc[header_idx+1:].reset_index(drop=True)
     data.columns = raw.iloc[header_idx].fillna('').tolist()
+    # Filter only XQ- quotes
     filtered = data[data['Parent Quote Name'].astype(str).str.startswith('XQ-', na=False)]
 
-    # Current dates
+    # Prepare dates in DD/MM/YYYY
     today = datetime.today()
-    today_str = today.strftime('%d/%m/%Y')  # DD/MM/YYYY
+    quote_date = today.strftime('%d/%m/%Y')
     if currency.upper() == 'USD':
         last_day = calendar.monthrange(today.year, today.month)[1]
-        expires_date = today.replace(day=last_day).strftime('%d/%m/%Y')
+        expires = today.replace(day=last_day).strftime('%d/%m/%Y')
     else:
-        day = today.day
-        if day <= 10:
-            expires_date = today.replace(day=10).strftime('%d/%m/%Y')
-        elif day <= 20:
-            expires_date = today.replace(day=20).strftime('%d/%m/%Y')
+        d = today.day
+        if d <= 10:
+            expires = today.replace(day=10).strftime('%d/%m/%Y')
+        elif d <= 20:
+            expires = today.replace(day=20).strftime('%d/%m/%Y')
         else:
             last_day = calendar.monthrange(today.year, today.month)[1]
-            expires_date = today.replace(day=last_day).strftime('%d/%m/%Y')
+            expires = today.replace(day=last_day).strftime('%d/%m/%Y')
 
-    # Prepare workbook
+    # Create workbook and header
     wb = Workbook()
     ws = wb.active
     ws.append([
-        "ExternalId", "Title", "Currency", "Date", "Reseller", "ResellerContact", "Expires", "ExpectedClose",
-        "EndUser", "BusinessUnit", "Item", "Quantity", "Salesprice", "Salesdiscount", "Purchaseprice",
-        "PurchaseDiscount", "Location", "ContractStart", "ContractEnd", "Serial#Supported", "Rebate",
-        "Opportunity", "Memo (Line)", "Quote ID (Line)", "VendorSpecialPriceApproval",
-        "VendorSpecialPriceApproval (Line)", "SalesCurrency", "SalesExchangeRate"
+        "ExternalId","Title","Currency","Date","Reseller","ResellerContact","Expires","ExpectedClose",
+        "EndUser","BusinessUnit","Item","Quantity","Salesprice","Salesdiscount","Purchaseprice",
+        "PurchaseDiscount","Location","ContractStart","ContractEnd","Serial#Supported","Rebate",
+        "Opportunity","Memo (Line)","Quote ID (Line)","VendorSpecialPriceApproval",
+        "VendorSpecialPriceApproval (Line)","SalesCurrency","SalesExchangeRate"
     ])
 
-    # Clean enduser for ExternalId (no spaces)
-    enduser_clean = enduser.replace(' ', '')
+    # Clean reseller for ExternalId (remove spaces)
+    reseller_clean = reseller.replace(' ', '')
 
     for _, row in filtered.iterrows():
-        # Discount parsing
-        discount = row.get('Total Discount (%)')
-        if pd.isna(discount): discount = 0
+        # Parse discount
+        disc = row.get('Total Discount (%)')
+        if pd.isna(disc):
+            disc = 0
         try:
-            discount = float(str(discount).replace('%', '').replace(',', '').strip())
+            disc = float(str(disc).replace('%','').replace(',','').strip())
         except:
-            discount = 0
+            disc = 0
 
-        # List price parsing
-        list_price = row.get('List Price')
-        if pd.isna(list_price): list_price = 0
+        # Parse list price
+        lp = row.get('List Price')
+        if pd.isna(lp): lp = 0
         try:
-            list_price = float(str(list_price).replace('$', '').replace(',', '').strip())
+            lp = float(str(lp).replace('$','').replace(',','').strip())
         except:
-            list_price = 0
+            lp = 0
 
-        # Net price after discount
-        net_price = list_price * (1 - discount / 100)
-        # Purchase price is list price
-        purchase_price = list_price
+        # Calculate net price after discount
+        net_price = lp * (1 - disc/100)
+        # Purchase price = list price
+        purchase_price = lp
 
-        # Base sales price calculation
-        if str(row.get('Product Code')).strip().startswith("NX"):
-            base_price = net_price * (2 * exchangeRate if currency.upper() == 'EUR' else 2)
+        # Determine base sales price
+        code = str(row.get('Product Code')).strip()
+        if code.startswith('NX'):
+            base = net_price * (2 * exchangeRate if currency.upper()=='EUR' else 2)
         else:
-            base_price = net_price * (exchangeRate if currency.upper() == 'EUR' else 1)
+            base = net_price * (exchangeRate if currency.upper()=='EUR' else 1)
 
-        # Apply margin markup
-        sales_price = base_price * (1 + margin/100)
+        # Apply margin
+        sales_price = base * (1 + margin/100)
 
-        # Sales discount relative to list price
-        sales_discount = round(1 - (net_price / sales_price), 2) if sales_price > 0 else 0
+        # Sales discount relative to net
+        sales_disc = round(1 - (net_price/sales_price),2) if sales_price>0 else 0
 
-        # ExternalId: EndUser + ParentQuote + date
-        external_id = f"{enduser_clean}_{row.get('Parent Quote Name')}_{today_str}"
+        # ExternalId: reseller_clean + quote + date
+        ext_id = f"{reseller_clean}_{row.get('Parent Quote Name')}_{quote_date}"
 
-        # Format purchase discount string
-        purchase_discount_str = f"{int(discount)}%"
+        # Purchase discount string
+        purchase_disc_str = f"{int(disc)}%"
 
+        # Append row
         ws.append([
-            external_id,
-            None,
-            currency,
-            today_str,
-            reseller,
-            None,
-            expires_date,
-            None,
-            enduser,  # EndUser
-            "Belgium",
-            str(row.get('Product Code')).strip(),
-            row.get('Quantity'),
-            round(sales_price, 2),
-            f"{int(sales_discount * 100)}%",
-            round(purchase_price, 2),
-            purchase_discount_str,
-            "Duffel : BE Sales Stock",
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            row.get('Parent Quote Name'),
-            None,
-            currency,
-            exchangeRate
+            ext_id, None, currency, quote_date, reseller, None, expires, None,
+            None, 'Belgium', code, row.get('Quantity'), round(sales_price,2),
+            f"{int(sales_disc*100)}%", round(purchase_price,2), purchase_disc_str,
+            'Duffel : BE Sales Stock', None, None, None, None, None, None, None,
+            row.get('Parent Quote Name'), None, currency, exchangeRate
         ])
 
     # Save workbook
     try:
         wb.save(OUTPUT_PATH)
     except Exception as e:
-        return JSONResponse(content={"error": f"Failed to save output file: {e}"}, status_code=500)
+        return JSONResponse(content={"error": f"Failed to save output: {e}"}, status_code=500)
 
-    return JSONResponse(content={"message": "Data exported successfully.", "output_file": "/download"}, status_code=200)
+    return JSONResponse(content={"message":"Data exported successfully.","output_file":"/download"}, status_code=200)
 
 @app.get("/download")
 async def download_file():
     if os.path.exists(OUTPUT_PATH):
         return FileResponse(OUTPUT_PATH, filename=os.path.basename(OUTPUT_PATH))
-    return JSONResponse(content={"error": "No exported file found."}, status_code=404)
+    return JSONResponse(content={"error":"No exported file found."}, status_code=404)
 

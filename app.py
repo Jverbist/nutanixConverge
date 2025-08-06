@@ -38,19 +38,23 @@ async def get_resellers():
 async def process_quote_d(
     file: UploadFile = File(...),
     reseller: str = Form(...),
+    enduser: str = Form(...),
     currency: str = Form(...),
     exchangeRate: float = Form(...),
     margin: float = Form(...)
 ):
+    # Save uploaded file
     file_path = os.path.join(UPLOAD_DIR, file.filename)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
+    # Read Excel
     try:
         raw = pd.read_excel(file_path, header=None)
     except Exception as e:
         return JSONResponse(content={"error": f"Failed to read file: {e}"}, status_code=400)
 
+    # Locate header row
     header_idx = raw[raw.apply(lambda r: r.astype(str).str.contains('Parent Quote Name', case=False, na=False).any(), axis=1)].index
     if header_idx.empty:
         return JSONResponse(content={"error": "Could not locate 'Parent Quote Name' header row."}, status_code=404)
@@ -59,10 +63,9 @@ async def process_quote_d(
     data.columns = raw.iloc[header_idx].fillna('').tolist()
     filtered = data[data['Parent Quote Name'].astype(str).str.startswith('XQ-', na=False)]
 
+    # Current dates
     today = datetime.today()
-    # format date as DD/MM/YYYY
-    today_str = today.strftime('%d/%m/%Y')
-
+    today_str = today.strftime('%d/%m/%Y')  # DD/MM/YYYY
     if currency.upper() == 'USD':
         last_day = calendar.monthrange(today.year, today.month)[1]
         expires_date = today.replace(day=last_day).strftime('%d/%m/%Y')
@@ -76,6 +79,7 @@ async def process_quote_d(
             last_day = calendar.monthrange(today.year, today.month)[1]
             expires_date = today.replace(day=last_day).strftime('%d/%m/%Y')
 
+    # Prepare workbook
     wb = Workbook()
     ws = wb.active
     ws.append([
@@ -86,36 +90,47 @@ async def process_quote_d(
         "VendorSpecialPriceApproval (Line)", "SalesCurrency", "SalesExchangeRate"
     ])
 
+    # Clean enduser for ExternalId (no spaces)
+    enduser_clean = enduser.replace(' ', '')
+
     for _, row in filtered.iterrows():
+        # Discount parsing
         discount = row.get('Total Discount (%)')
-        if pd.isna(discount):
-            discount = 0
+        if pd.isna(discount): discount = 0
         try:
             discount = float(str(discount).replace('%', '').replace(',', '').strip())
         except:
             discount = 0
 
+        # List price parsing
         list_price = row.get('List Price')
-        if pd.isna(list_price):
-            list_price = 0
+        if pd.isna(list_price): list_price = 0
         try:
             list_price = float(str(list_price).replace('$', '').replace(',', '').strip())
         except:
             list_price = 0
 
-        # calculate net price after discount
+        # Net price after discount
         net_price = list_price * (1 - discount / 100)
-        # purchase price equals list price
+        # Purchase price is list price
         purchase_price = list_price
 
+        # Base sales price calculation
         if str(row.get('Product Code')).strip().startswith("NX"):
-            sales_price = net_price * (2 * exchangeRate) if currency.upper() == 'EUR' else net_price * 2
+            base_price = net_price * (2 * exchangeRate if currency.upper() == 'EUR' else 2)
         else:
-            sales_price = net_price * exchangeRate if currency.upper() == 'EUR' else net_price
+            base_price = net_price * (exchangeRate if currency.upper() == 'EUR' else 1)
 
+        # Apply margin markup
+        sales_price = base_price * (1 + margin/100)
+
+        # Sales discount relative to list price
         sales_discount = round(1 - (net_price / sales_price), 2) if sales_price > 0 else 0
 
-        external_id = f"{reseller}_{row.get('Parent Quote Name')}_{today_str}"
+        # ExternalId: EndUser + ParentQuote + date
+        external_id = f"{enduser_clean}_{row.get('Parent Quote Name')}_{today_str}"
+
+        # Format purchase discount string
         purchase_discount_str = f"{int(discount)}%"
 
         ws.append([
@@ -127,7 +142,7 @@ async def process_quote_d(
             None,
             expires_date,
             None,
-            None,
+            enduser,  # EndUser
             "Belgium",
             str(row.get('Product Code')).strip(),
             row.get('Quantity'),
@@ -149,6 +164,7 @@ async def process_quote_d(
             exchangeRate
         ])
 
+    # Save workbook
     try:
         wb.save(OUTPUT_PATH)
     except Exception as e:

@@ -95,13 +95,13 @@ async def process_quote_d(
 
     for _, row in filtered.iterrows():
         # Parse discount (Total Discount (%))
-        disc = row.get("Total Discount (%)")
-        if pd.isna(disc):
-            disc = 0
+        purchase_disc = row.get("Total Discount (%)")
+        if pd.isna(purchase_disc):
+            purchase_disc = 0
         try:
-            disc = float(str(disc).replace("%", "").replace(",", "").strip())
+            purchase_disc = float(str(purchase_disc).replace("%", "").replace(",", "").strip())
         except:
-            disc = 0
+            purchase_disc = 0
 
         # Parse list price
         lp = row.get("List Price")
@@ -122,7 +122,7 @@ async def process_quote_d(
             vendor_price = 0
 
         # Net price after discount (used as our base before markup)
-        net_price = lp * (1 - disc / 100)
+        net_price = lp * (1 - purchase_disc / 100)
 
         # Purchase price equals the vendor's Sale Price
         purchase_price = lp
@@ -141,16 +141,16 @@ async def process_quote_d(
             base = base_native * exchangeRate
 
         # Apply margin markup
-        sales_price = base * (1 + margin / 100)
+        sales_price = lp
 
         # Sales discount relative to net
-        sales_disc = round(1 - (net_price / sales_price), 2) if sales_price > 0 else 0
+        # sales_disc = round(1 - (net_price / sales_price), 2) if sales_price > 0 else 0
 
         # ExternalId: reseller_clean + quote + date
         ext_id = f"{reseller_clean}_{row.get('Parent Quote Name')}_{quote_date}"
 
         # Purchase discount
-        purchase_disc= f"{int(disc)}%"
+        purchase_disc= f"{int(purchase_disc)}%"
 
         # Append row
         rows.append([

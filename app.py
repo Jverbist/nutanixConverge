@@ -125,7 +125,8 @@ async def process_quote_d(
         net_price = lp * (1 - disc / 100)
 
         # Purchase price equals the vendor's Sale Price
-        purchase_price = vendor_price
+        purchase_price = lp
+
 
         # Determine base sales price (EUR/SEK/NOK/DKK multiply by exchangeRate; USD keep as-is)
         code = str(row.get("Product Code")).strip()
@@ -148,14 +149,14 @@ async def process_quote_d(
         # ExternalId: reseller_clean + quote + date
         ext_id = f"{reseller_clean}_{row.get('Parent Quote Name')}_{quote_date}"
 
-        # Purchase discount string
-        purchase_disc_str = f"{int(disc)}%"
+        # Purchase discount
+        purchase_disc= f"{int(disc)}%"
 
         # Append row
         rows.append([
             ext_id, None, currency, quote_date, reseller, None, expires, None,
             None, "Belgium", code, row.get("Quantity"), round(sales_price, 2),
-            f"{int(sales_disc * 100)}%", round(purchase_price, 2), purchase_disc_str,
+            f"{int(sales_disc * 100)}%", round(purchase_price, 2), purchase_disc,
             "Duffel : BE Sales Stock", None, None, None, None, None, None, None,
             row.get("Parent Quote Name"), None, currency, exchangeRate
         ])

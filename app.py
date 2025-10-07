@@ -130,11 +130,11 @@ async def process_quote_d(
         # Determine base sales price (EUR/SEK/NOK/DKK multiply by exchangeRate; USD keep as-is)
         code = str(row.get("Product Code")).strip()
         if code.startswith("NX"):
-            base_native = net_price * 2
+            base_native = net_price * 2 # To do calculation net price with exchange rate with Euro
         else:
             base_native = net_price
 
-        if currency == "EUR":
+        if currency == "USD":
             base = base_native
         else:
             base = base_native * exchangeRate
@@ -173,3 +173,4 @@ async def download_file():
     if os.path.exists(OUTPUT_PATH):
         return FileResponse(OUTPUT_PATH, filename=os.path.basename(OUTPUT_PATH), media_type='text/csv')
     return JSONResponse(content={"error": "No exported file found."}, status_code=404)
+

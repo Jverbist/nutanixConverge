@@ -173,4 +173,3 @@ async def download_file():
     if os.path.exists(OUTPUT_PATH):
         return FileResponse(OUTPUT_PATH, filename=os.path.basename(OUTPUT_PATH), media_type='text/csv')
     return JSONResponse(content={"error": "No exported file found."}, status_code=404)
-

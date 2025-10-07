@@ -1,7 +1,6 @@
 <!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -10,7 +9,6 @@
     <link rel="icon" type="image/x-icon" href="/static/nutanix.ico">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-
 <body>
     <div class="container mt-5">
         <h1 class="mb-4">Upload Nutanix Quote</h1>
@@ -22,8 +20,7 @@
             <div class="mb-3">
                 <label for="reseller" class="form-label">Reseller</label>
                 <!-- Text input instead of partner list (no /resellers call) -->
-                <input class="form-control" type="text" id="reseller" name="reseller" placeholder="e.g. ABC NV"
-                    required>
+                <input class="form-control" type="text" id="reseller" name="reseller" placeholder="e.g. ABC NV" required>
             </div>
             <div class="mb-3">
                 <label for="currency" class="form-label">Currency</label>
@@ -38,23 +35,19 @@
             </div>
             <div class="mb-3">
                 <label for="exchangeRate" class="form-label">Exchange Rate</label>
-                <input class="form-control" type="number" step="0.0001" id="exchangeRate" name="exchangeRate"
-                    placeholder="Enter exchange rate" required>
+                <input class="form-control" type="number" step="0.0001" id="exchangeRate" name="exchangeRate" placeholder="Enter exchange rate" required>
             </div>
             <div class="mb-3">
                 <label for="margin" class="form-label">Desired Margin (%)</label>
-                <input class="form-control" type="number" step="0.01" id="margin" name="margin"
-                    placeholder="Enter margin percentage" value="0" required>
+                <input class="form-control" type="number" step="0.01" id="margin" name="margin" placeholder="Enter margin percentage" value="0" required>
             </div>
             <div class="mb-2 text-muted">
-                <small><strong>Date format:</strong> DD/MM/YYYY (e.g., 30/06/2025). ExternalId =
-                    reseller_with_underscores + Parent Quote Name + date.</small>
+                <small><strong>Date format:</strong> DD/MM/YYYY (e.g., 30/06/2025). ExternalId = reseller_with_underscores + Parent Quote Name + date.</small>
             </div>
             <button type="submit" class="btn btn-primary">Upload and Process</button>
         </form>
         <div id="response" class="mt-4"></div>
     </div>
-
 
     <script>
         const currencyEl = document.getElementById('currency');
@@ -73,7 +66,6 @@
         currencyEl.addEventListener('change', syncExchange);
         window.addEventListener('DOMContentLoaded', syncExchange);
 
-
         const form = document.getElementById('uploadForm');
         const responseEl = document.getElementById('response');
         form.addEventListener('submit', async (event) => {
@@ -84,7 +76,7 @@
                 const res = await fetch('/process-quote-d', { method: 'POST', body: formData });
                 const result = await res.json();
                 if (res.ok) {
-                    responseEl.innerHTML = `<div class=\"alert alert-success\">${result.message || 'Export ready.'} <a href='/download' class='btn btn-success btn-sm ms-2' target='_blank' rel='noopener'>Download CSV</a></div>`;
+                    responseEl.innerHTML = `<div class=\"alert alert-success\">${result.message || 'Export ready.'} <a href=\"/download\" download=\"exported_quoteD.csv\" class='btn btn-success btn-sm ms-2' target='_blank' rel='noopener'>Download CSV</a></div>`;
                 } else if (result.error) {
                     responseEl.innerHTML = `<div class="alert alert-danger">Error: ${result.error}</div>`;
                 } else {
@@ -97,5 +89,4 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
-
 </html>

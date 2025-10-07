@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 import shutil
 import os
 import pandas as pd
-from openpyxl import Workbook
+import csv
 from datetime import datetime
 import calendar
 
@@ -28,7 +28,11 @@ async def process_quote_d(
     exchangeRate: float = Form(...),
     margin: float = Form(...)
 ):
-    # Access all parameters and start function body
+    """
+    currency behavior:
+    - EUR: treat prices as EUR; do not multiply by exchangeRate for base calc
+    - USD/SEK/NOK/DKK: multiply by provided exchangeRate when computing sales price
+    """
     currency = currency.upper().strip()
     supported = {"EUR", "USD", "SEK", "NOK", "DKK"}
     if currency not in supported:
@@ -75,19 +79,19 @@ async def process_quote_d(
             last_day = calendar.monthrange(today.year, today.month)[1]
             expires = today.replace(day=last_day).strftime("%d/%m/%Y")
 
-    # Create workbook and header
-    wb = Workbook()
-    ws = wb.active
-    ws.append([
+    # Prepare CSV header and rows
+    columns = [
         "ExternalId","Title","Currency","Date","Reseller","ResellerContact","Expires","ExpectedClose",
         "EndUser","BusinessUnit","Item","Quantity","Salesprice","Salesdiscount","Purchaseprice",
         "PurchaseDiscount","Location","ContractStart","ContractEnd","Serial#Supported","Rebate",
         "Opportunity","Memo (Line)","Quote ID (Line)","VendorSpecialPriceApproval",
         "VendorSpecialPriceApproval (Line)","SalesCurrency","SalesExchangeRate"
-    ])
+    ]
+    rows = []
 
     # Clean reseller for ExternalId (replace spaces with underscore)
     reseller_clean = reseller.replace(" ", "_")
+
 
     for _, row in filtered.iterrows():
         # Parse discount (Total Discount (%))
@@ -148,7 +152,7 @@ async def process_quote_d(
         purchase_disc_str = f"{int(disc)}%"
 
         # Append row
-        ws.append([
+        rows.append([
             ext_id, None, currency, quote_date, reseller, None, expires, None,
             None, "Belgium", code, row.get("Quantity"), round(sales_price, 2),
             f"{int(sales_disc * 100)}%", round(purchase_price, 2), purchase_disc_str,
@@ -156,9 +160,9 @@ async def process_quote_d(
             row.get("Parent Quote Name"), None, currency, exchangeRate
         ])
 
-    # Save workbook
+    # Save CSV
     try:
-        wb.save(OUTPUT_PATH)
+        pd.DataFrame(rows, columns=columns).to_csv(OUTPUT_PATH, index=False)
     except Exception as e:
         return JSONResponse(content={"error": f"Failed to save output: {e}"}, status_code=500)
 
@@ -167,7 +171,6 @@ async def process_quote_d(
 @app.get("/download")
 async def download_file():
     if os.path.exists(OUTPUT_PATH):
-        return FileResponse(OUTPUT_PATH, filename=os.path.basename(OUTPUT_PATH))
+        return FileResponse(OUTPUT_PATH, filename=os.path.basename(OUTPUT_PATH), media_type='text/csv')
     return JSONResponse(content={"error": "No exported file found."}, status_code=404)
-
 

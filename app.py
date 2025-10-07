@@ -144,8 +144,8 @@ async def process_quote_d(
         sales_price = lp
 
         # Sales discount relative to net
-        # sales_disc = round(1 - (net_price / sales_price), 2) if sales_price > 0 else 0
-
+        #sales_disc = round(1 - (net_price / sales_price), 2) if sales_price > 0 else 0
+        sales_disc = (purchase_disc / 100) / (1 + (margin / 100))
         # ExternalId: reseller_clean + quote + date
         ext_id = f"{reseller_clean}_{row.get('Parent Quote Name')}_{quote_date}"
 
